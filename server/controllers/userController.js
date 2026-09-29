@@ -1,6 +1,7 @@
 import cloudinary from "../lib/cloudinary.js"
 import { generateToken } from "../lib/utils.js"
 import User from "../models/user.js"
+import bcrypt from "bcryptjs"
 
 export const signup=async(req,res)=>{
     const {fullName,email,password,bio}=req.body
@@ -23,25 +24,29 @@ export const signup=async(req,res)=>{
     }
 }
 
-export const login=async(req,res)=>{
-    try{
-        const {email,password}=req.body
-        const userData=await User.findOne({email})
-        const isPasswordCorrect=await bcrypt.compare(password,userData.password)
-        if(!isPasswordCorrect){
-            return res.json({sucess:false,message:"Invalid credentials"})
+export const login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const userData = await User.findOne({ email });
+        if (!userData) {
+            return res.json({success: false,message: "User does not exist"});
         }
-        const token=generateToken(userData._id)
-        res.json({sucess:true,userData,token,message:"login successfully"})
-    }catch(e){
-        console.log(e.message)
-        return res.json({sucess:false,message:error.message})
+        const isPasswordCorrect = await bcrypt.compare(password,userData.password);
+        if (!isPasswordCorrect) {
+            return res.json({success: false,message: "Invalid credentials"});
+        }
+        const token = generateToken(userData._id);
+        res.json({success: true,userData,token,message: "Login successfully"});
+
+    } catch (error) {
+        console.log(error.message);
+        return res.json({success: false,message: error.message});
     }
-}
+};
 
 //controller to check if user is authenticated
 export const checkAuth=(req,res)=>{
-    res.json({sucess:true,user:req.user})
+    res.json({success:true,user:req.user})
 }
 
 export const updateProfile=async(req,res)=>{
@@ -55,9 +60,9 @@ export const updateProfile=async(req,res)=>{
             const upload=await cloudinary.uploader.upload(profilePic)
             updateUser=await User.findByIdAndUpdate(userId,{profilePic:upload.secure_url,bio,fullName},{new:true})
         }
-        res.json({sucess:true,user:updateUser})
-    }catch(e){
-        console.log(e.message)
-        res.json({sucess:false,message:e.message})
+        res.json({success:true,user:updateUser})
+    }catch(error){
+        console.log(error.message)
+        res.json({success:false,message:error.message})
     }
 }
