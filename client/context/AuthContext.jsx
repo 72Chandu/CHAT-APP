@@ -15,30 +15,30 @@ export const AuthProvider = ({ children }) => {
 
     // Check whether user is authenticated
     const CheckAuth = async () => {
-    try {
-        const { data } = await axios.get("/api/auth/check");
-        if (data.success) {
-            setAuthUser(data.user);
-            connectSocket(data.user);
-        } else {
+        try {
+            const { data } = await axios.get("/api/auth/check");
+            if (data.success) {
+                setAuthUser(data.user);
+                connectSocket(data.user);
+            } else {
+                localStorage.removeItem("token");
+                delete axios.defaults.headers.common["token"];
+                setToken(null);
+                setAuthUser(null);
+            }
+        } catch (error) {
+            console.log("Check auth error:", error.response?.data?.message || error.message);
             localStorage.removeItem("token");
             delete axios.defaults.headers.common["token"];
             setToken(null);
             setAuthUser(null);
         }
-    } catch (error) {
-        console.log("Check auth error:",error.response?.data?.message || error.message );
-        localStorage.removeItem("token");
-        delete axios.defaults.headers.common["token"];
-        setToken(null);
-        setAuthUser(null);
-    }
-};
+    };
 
     // Login / Signup
     const login = async (state, credentials) => {
         try {
-            const { data } = await axios.post(`/api/auth/${state}`,credentials);
+            const { data } = await axios.post(`/api/auth/${state}`, credentials);
             if (data.success) {
                 setAuthUser(data.userData);
                 axios.defaults.headers.common["token"] = data.token;
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }) => {
     // Update profile
     const updateProfile = async (body) => {
         try {
-            const { data } = await axios.put("/api/auth/update-profile",body );
+            const { data } = await axios.put("/api/auth/update-profile", body);
             if (data.success) {
                 setAuthUser(data.user);
                 toast.success("Profile updated successfully");
@@ -122,7 +122,7 @@ export const AuthProvider = ({ children }) => {
         }
     }, []);
 
-    const value = {axios,authUser,onlineUsers,socket,login,logout,updateProfile,};
+    const value = { axios, authUser, onlineUsers, socket, login, logout, updateProfile, };
 
     return (
         <AuthContext.Provider value={value}>
