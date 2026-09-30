@@ -8,7 +8,7 @@ import { useContext } from 'react'
 import { AuthContext } from '../context/AuthContext'
 const App = () => {
   const {authUser}=useContext(AuthContext)
-  console.log("AUTH USER:", authUser);
+  // console.log("AUTH USER:", authUser);
   return (
     <div className="bg-[url('./src/assets/bgImage.svg')] bg-contain">
       <Toaster/>

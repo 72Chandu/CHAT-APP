@@ -32,7 +32,7 @@ export const ChatProvider=({children})=>{
         try{
             const {data}=await axios.get(`/api/message/${userId}`);
             if(data.success){
-                setMessages(data.messages)
+                setMessages(data.messages || [])
             }
         } catch (error) {
             toast.error(error.messages)
@@ -41,11 +41,11 @@ export const ChatProvider=({children})=>{
     }
 
     //fn to send message
-    const sendMessage=async({messageData})=>{
+    const sendMessage=async(messageData)=>{
         try{
             const {data}=await axios.post(`/api/message/send/${selectedUser._id}`,messageData);
             if(data.success){
-                setMessages(prevMessage=>[...prevMessage,data.message])
+                setMessages((prevMessage)=>[...prevMessage,data.message])
             }
         } catch (error) {
             toast.error(error.messages)
@@ -79,7 +79,7 @@ export const ChatProvider=({children})=>{
         return ()=>unsuscribeFromMessage()
     },[socket,selectedUser])
 
-    const value={messages,users,selectedUser,getUsers,setMessages,sendMessage,setSelectedUser,unseenMessages,setUnseenMessages}
+    const value={messages,users,selectedUser,getUsers,getMessages,sendMessage,setSelectedUser,unseenMessages,setUnseenMessages}
     return(
         <ChatContext.Provider value={value}>
             {children}

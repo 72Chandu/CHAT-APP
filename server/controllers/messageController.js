@@ -17,7 +17,7 @@ export const getUsersForSidebar=async(req,res)=>{
             }
         })
         await Promise.all(promises)
-        res.json({success:true,users:filteredUser,unseenMessage})
+        res.json({success:true,users:filteredUser,unseenMessages: unseenMessage})
     }catch(e){
         console.log(e.message)
         res.json({success:false,message:e.message})
@@ -29,14 +29,14 @@ export const getMessage=async(req,res)=>{
     try{
         const {id:selectedUserId}=req.params
         const myId=req.user._id
-        const msg=await Message.find({
+        const messages=await Message.find({
             $or:[
                 {senderId:myId,receiverId:selectedUserId},
                 {senderId:selectedUserId,receiverId:myId},
             ]
         })
         await Message.updateMany({senderId:selectedUserId,receiverId:myId},{seen:true})
-        res.json({success:true,msg})
+        res.json({success:true,messages})
     }catch(e){
         console.log(e.message)
         res.json({success:false,message:e.message})
@@ -75,7 +75,7 @@ export const sendMessage=async(req,res)=>{
         io.to(receiverSocketId).emit("newMessage",newMessage)
        }
        
-       res.json({success:true,newMessage})
+       res.json({success:true, message:newMessage})
     }catch(e){
         console.log(e.message)
         res.json({success:false,message:e.message})
