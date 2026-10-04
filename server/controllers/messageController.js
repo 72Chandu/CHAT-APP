@@ -35,7 +35,7 @@ export const getMessage=async(req,res)=>{
                 {senderId:selectedUserId,receiverId:myId},
             ],
             deletedFor: {$ne: myId}
-        })
+        }).populate("replyTo")
         await Message.updateMany({senderId:selectedUserId,receiverId:myId},{seen:true})
         res.json({success:true,messages})
     }catch(e){
@@ -59,7 +59,7 @@ export const markMessageAsSeen=async(req,res)=>{
 //send message to selected user 
 export const sendMessage=async(req,res)=>{
     try{
-       const {text,image}=req.body
+       const {text,image,replyTo}=req.body
        const receiverId=req.params.id
        const senderId=req.user._id
        
@@ -68,7 +68,7 @@ export const sendMessage=async(req,res)=>{
         const uploadResponce=await cloudinary.uploader.upload(image)
         imageUrl=uploadResponce.secure_url
        }
-       const newMessage=await Message.create({senderId,receiverId,text,image:imageUrl})
+       const newMessage=await Message.create({senderId,receiverId,text,image:imageUrl,replyTo:replyTo || null})
        
        //emit the new message to the recevier's socket
        const receiverSocketId=userSocketMap[receiverId]

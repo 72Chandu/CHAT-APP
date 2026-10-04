@@ -5,18 +5,27 @@ import { ChatContext } from '../../context/ChatContext'
 import { AuthContext } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 const ChatContainer = () => {
-  const { messages, sendMessage, getMessages, selectedUser, setSelectedUser, deleteMessage, deleteMessageForMe, forwardMessage,users } = useContext(ChatContext)
+  const { messages, sendMessage, getMessages, selectedUser, setSelectedUser, deleteMessage, deleteMessageForMe, forwardMessage, users } = useContext(ChatContext)
   const { authUser, onlineUsers } = useContext(AuthContext)
   const [menuMessageId, setMenuMessageId] = useState(null)
   const [forwardMessageId, setForwardMessageId] = useState(null)
+  const [replyMessage, setReplyMessage] = useState(null)
   const scrollEnd = useRef()
+  const messageRefs = useRef({})
+  const [highlightedMessage, setHighlightedMessage] = useState(null)
 
   const [input, setInput] = useState('')
   const handleSendMessage = async (e) => {
     e.preventDefault()
-    if (input.trim() === "") return null
-    await sendMessage({ text: input.trim() })
+    if (input.trim() === "") return
+    const messageData = { text: input.trim() }
+    // Add reply information
+    if (replyMessage) {
+      messageData.replyTo = replyMessage._id
+    }
+    await sendMessage(messageData)
     setInput("")
+    setReplyMessage(null)
   }
   const handleSendImage = async (e) => {
     const file = e.target.files[0]
@@ -37,6 +46,15 @@ const ChatContainer = () => {
     if (confirmDelete) {
       deleteMessage(messageId)
     }
+  }
+  const scrollToMessage = (messageId) => {
+    const messageElement = messageRefs.current[messageId]
+    if (!messageElement) return
+    messageElement.scrollIntoView({behavior: "smooth", block: "center"})
+    setHighlightedMessage(messageId)
+    setTimeout(() => {
+      setHighlightedMessage(null)
+    }, 1500)
   }
   const handleDeleteForMe = async (messageId) => {
     const confirmDelete = window.confirm("Delete this message")
@@ -72,7 +90,7 @@ const ChatContainer = () => {
           const isMine = String(msg.senderId) === String(authUser?._id)
 
           return (
-            <div key={msg._id} className={`flex items-end gap-2 w-full mb-3 ${isMine ? "justify-end" : "justify-start"}`}>
+            <div key={msg._id} ref={(el)=>{messageRefs.current[msg._id]=el}} className={`flex items-end gap-2 w-full mb-3 transition-all duration-300 ${isMine ? "justify-end" : "justify-start"} ${highlightedMessage===msg._id ?"bg-violet-500/30 rounded-lg":""}`}>
 
               {/* Message + profile */}
               <div className={`flex items-end gap-2 ${isMine ? "flex-row" : "flex-row-reverse"}`}>
@@ -84,10 +102,24 @@ const ChatContainer = () => {
                     <span className="absolute bottom-1 right-2 text-[10px] text-white bg-black/50 px-1 rounded">{formateMessageTime(msg.createdAt)}</span>
                   </div>
                 ) : (
-                  <div className="relative max-w-[200px]">
-                    <p className={`p-2 pr-14 md:text-sm font-light break-all bg-violet-500/30 text-white rounded-lg ${isMine ? "rounded-br-none" : "rounded-bl-none"}`}>{msg.text}
-                      <span className="absolute bottom-1 right-2 text-[10px] text-gray-400">{formateMessageTime(msg.createdAt)}</span>
-                    </p>
+                  <div className="relative max-w-[250px]">
+                    <div className={`p-2 pr-14 md:text-sm font-light break-all bg-violet-500/30 text-white rounded-lg ${isMine ? "rounded-br-none" : "rounded-bl-none"}`}>
+                      {/* Replied message */}
+                      {msg.replyTo && (
+                        <div onClick={() => {const replyId =typeof msg.replyTo === "object"? msg.replyTo._id: msg.replyTo ;scrollToMessage(replyId)}} className="mb-1 px-2 py-1 border-l-2 border-violet-400 bg-black/20 rounded text-xs text-gray-300">
+                          <p className="text-violet-400 font-medium"> Reply</p>
+                          <p className="truncate">{typeof msg.replyTo === "object" ? msg.replyTo.text || "Image" : "Replied message"}</p>
+                        </div>
+                      )}
+
+                      {/* Current message */}
+                      <p>{msg.text} </p>
+                      <img src={msg.image} alt="" className="max-w-[230px] border border-gray-700 rounded-lg" />
+                      {/* Timestamp */}
+                      <span className="absolute bottom-1 right-2 text-[10px] text-gray-400">
+                        {formateMessageTime(msg.createdAt)}
+                      </span>
+                    </div>
                   </div>
                 )}
                 {/* Profile */}
@@ -98,8 +130,8 @@ const ChatContainer = () => {
               <div className="relative ml-auto">
                 <button onClick={() => setMenuMessageId(menuMessageId === msg._id ? null : msg._id)} className="text-gray-400 hover:text-white text-lg px-2 cursor-pointer">⋮</button>
                 {menuMessageId === msg._id && (
-                  <div className="absolute top-full mt-1 right-0 bottom-7 w-32 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
-                    <button onClick={() => { setMenuMessageId(null) }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700 cursor-pointer">↩ Reply</button>
+                  <div className="absolute top-full mt-1 right-0 w-32 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
+                    <button onClick={() => { setMenuMessageId(null); setReplyMessage(msg) }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700 cursor-pointer">↩ Reply</button>
                     <button onClick={() => { setMenuMessageId(null); setForwardMessageId(msg._id) }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700 cursor-pointer">➡ Forward</button>
                     {isMine ? (
                       <button onClick={() => { setMenuMessageId(null); handleDeleteMessage(msg._id) }} className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-gray-700 cursor-pointer"> 🗑 Delete</button>
@@ -126,13 +158,13 @@ const ChatContainer = () => {
                 {users.filter((user) => String(user._id) !== String(authUser?._id)).map((user) => (
                   <button key={user._id}
                     onClick={async () => {
-                      const success = await forwardMessage( forwardMessageId, user._id);
+                      const success = await forwardMessage(forwardMessageId, user._id);
                       if (success) {
                         setForwardMessageId(null);
                       }
                     }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 cursor-pointer"
                   >
-                    <img src={user.profilePic || assets.avatar_icon}className="w-10 h-10 rounded-full"alt=""/>
+                    <img src={user.profilePic || assets.avatar_icon} className="w-10 h-10 rounded-full" alt="" />
                     <div className="text-left">
                       <p className="text-white">{user.fullName}</p>
                     </div>
@@ -145,13 +177,50 @@ const ChatContainer = () => {
         <div ref={scrollEnd}></div>
       </div>
       {/* bottom */}
-      <div className='absolute bottom-0 left-0 right-0 flex items-center gap-3 p-3'>
-        <div className='flex-1 flex items-center bg-gray-100/12 rounded-full'>
-          <input onChange={(e) => setInput(e.target.value)} value={input} onKeyDown={(e) => e.key === "Enter" ? handleSendMessage(e) : null} type="text" placeholder='Send a message' className='flex-1 text-sm p-3 border-none rounded-lg outline-none text-white placeholder-gray-400' />
-          <input onChange={handleSendImage} type="file" id='image' accept='image/png, image/jpeg' hidden />
-          <label htmlFor="image"><img src={assets.gallery_icon} className='w-5 mr-2 cursor-pointer' /></label>
+      <div className="absolute bottom-0 left-0 right-0 p-3">
+
+        {/* Reply Preview */}
+        {replyMessage && (
+          <div className="flex items-center gap-3 bg-gray-800/90 border-l-4 border-violet-500 rounded-t-lg px-3 py-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-violet-400 text-xs font-medium">
+                Replying to{" "}
+                {String(replyMessage.senderId) === String(authUser?._id)? "yourself": selectedUser?.fullName}
+              </p>
+              {replyMessage.image ? (
+                <div className="flex items-center gap-2">
+                  <img src={replyMessage.image}className="w-8 h-8 rounded object-cover"alt=""/>
+                  <p className="text-gray-300 text-xs truncate">Image</p>
+                </div>
+              ) : (
+                <p className="text-gray-300 text-xs truncate"> {replyMessage.text}</p>
+              )}
+            </div>
+            {/* Cancel Reply */}
+            <button onClick={() => setReplyMessage(null)} className="text-gray-400 hover:text-white text-xl cursor-pointer" > ×</button>
+          </div>
+        )}
+
+        {/* Input */}
+        <div className="flex items-center gap-3">
+          <div className="flex-1 flex items-center bg-gray-100/12 rounded-full">
+            <input
+              onChange={(e) => setInput(e.target.value)}
+              value={input}
+              onKeyDown={(e) =>
+                e.key === "Enter" ? handleSendMessage(e) : null
+              }
+              type="text"
+              placeholder={
+                replyMessage? "Type your reply..." : "Send a message"
+              }
+              className="flex-1 text-sm p-3 border-none rounded-lg outline-none text-white placeholder-gray-400"
+            />
+            <input onChange={handleSendImage} type="file" id="image" accept="image/png, image/jpeg" hidden/>
+            <label htmlFor="image"><img src={assets.gallery_icon} className="w-5 mr-2 cursor-pointer"/> </label>
+          </div>
+          <img onClick={handleSendMessage} src={assets.send_button}className="w-7 cursor-pointer"/>
         </div>
-        <img onClick={handleSendMessage} src={assets.send_button} className='w-7 cursor-pointer' />
       </div>
     </div>
   ) : (

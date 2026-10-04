@@ -5,7 +5,8 @@ const messageSchema=new mongoose.Schema({
     text:{type:String},
     image:{type:String},
     seen:{type:Boolean,default:false},
-    deletedFor: [{type: mongoose.Schema.Types.ObjectId,ref: "User"}]
+    deletedFor: [{type: mongoose.Schema.Types.ObjectId,ref: "User"}],
+    replyTo: {type: mongoose.Schema.Types.ObjectId,ref: "Message",default: null}
 },{timestamps:true})
 const Message=mongoose.model("Message",messageSchema)
 export default Message;
