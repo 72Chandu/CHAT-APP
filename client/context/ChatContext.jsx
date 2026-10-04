@@ -9,7 +9,6 @@ export const ChatProvider = ({ children }) => {
     const [users, setUsers] = useState([])
     const [selectedUser, setSelectedUser] = useState(null)
     const [unseenMessages, setUnseenMessages] = useState({}) // {userId:no of message unseen}
-
     const { socket, axios } = useContext(AuthContext)
 
     //fn to get all user for sidebar
@@ -74,12 +73,69 @@ export const ChatProvider = ({ children }) => {
         if (socket) socket.off("newMessage")
     }
 
-    useEffect(() => {
-        subscribeToMessage()
-        return () => unsuscribeFromMessage()
-    }, [socket, selectedUser])
 
-    const value = { messages, users, selectedUser, getUsers, getMessages, sendMessage, setSelectedUser, unseenMessages, setUnseenMessages }
+    const deleteMessage = async (messageId) => {
+        try {
+            const { data } = await axios.delete(`/api/message/delete/${messageId}`);
+            if (data.success) {
+                setMessages(prev =>
+                    prev.filter(msg => msg._id !== messageId)
+                );
+                toast.success("Message deleted successfully");
+            }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message);
+        }
+    };
+    const deleteMessageForMe = async (messageId) => {
+            try {
+                const { data } = await axios.delete(`/api/message/delete-for-me/${messageId}`)
+                if (data.success) {
+                    setMessages(prev =>
+                        prev.filter(
+                            msg => String(msg._id) !== String(messageId)
+                        )
+                    )
+                }
+            } catch (error) {
+                toast.error(error.response?.data?.message || error.message )
+            }
+    }
+    // useEffect(() => {
+    //     subscribeToMessage()
+    //     return () => unsuscribeFromMessage()
+    // }, [socket, selectedUser])
+
+    useEffect(() => {
+        if (!socket) return;
+        const handleNewMessage = (newMessage) => {
+            if (selectedUser && newMessage.senderId === selectedUser._id) {
+                newMessage.seen = true;
+                setMessages((prevMessages) => [...prevMessages, newMessage]);
+                axios.put(`/api/message/mark/${newMessage._id}`);
+            } else {
+                setUnseenMessages((prev) => ({
+                    ...prev,
+                    [newMessage.senderId]: (prev[newMessage.senderId] || 0) + 1
+                }));
+            }
+        };
+
+        const handleDeletedMessage = ({ messageId }) => {
+            setMessages((prevMessages) =>
+                prevMessages.filter(
+                    (msg) => msg._id !== messageId
+                )
+            );
+        };
+        socket.on("newMessage", handleNewMessage);
+        socket.on("messageDeleted", handleDeletedMessage);
+        return () => {
+            socket.off("newMessage", handleNewMessage);
+            socket.off("messageDeleted", handleDeletedMessage);
+        };
+    }, [socket, selectedUser, axios]);
+    const value = { messages, users, selectedUser, getUsers, getMessages, sendMessage, setSelectedUser, unseenMessages, setUnseenMessages, deleteMessage,deleteMessageForMe }
     return (
         <ChatContext.Provider value={value}>
             {children}

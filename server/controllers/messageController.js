@@ -33,7 +33,8 @@ export const getMessage=async(req,res)=>{
             $or:[
                 {senderId:myId,receiverId:selectedUserId},
                 {senderId:selectedUserId,receiverId:myId},
-            ]
+            ],
+            deletedFor: {$ne: myId}
         })
         await Message.updateMany({senderId:selectedUserId,receiverId:myId},{seen:true})
         res.json({success:true,messages})
@@ -80,4 +81,93 @@ export const sendMessage=async(req,res)=>{
         console.log(e.message)
         res.json({success:false,message:e.message})
     }
+}
+
+export const deleteMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    // Find the message and make sure it belongs to the logged-in user
+    const message = await Message.findOne({_id: id,senderId: userId,});
+
+    if (!message) {
+      return res.status(404).json({success: false,message: "Message not found or unauthorized",});
+    }
+
+    // If the message contains an image, delete it from Cloudinary
+    if (message.image) {
+      try {
+        const imageUrl = message.image;
+        const uploadPart = imageUrl.split("/upload/")[1];
+
+        if (uploadPart) {
+          const parts = uploadPart.split("/");
+
+          // Remove the Cloudinary version segment, such as v123456
+          const versionIndex = parts.findIndex(part =>/^v\d+$/.test(part));
+          const publicIdParts =versionIndex !== -1 ? parts.slice(versionIndex + 1): parts;
+          const publicId = publicIdParts.join("/").replace(/\.[^/.]+$/, "");
+
+          if (publicId) {
+            const result = await cloudinary.uploader.destroy(publicId);
+
+            if (result.result !== "ok" && result.result !== "not found") {
+              console.error("Cloudinary deletion result:", result);
+            }
+          }
+        }
+      } catch (cloudinaryError) {
+        // Continue deleting the chat message even if Cloudinary fails
+        console.error("Cloudinary image deletion failed:",cloudinaryError.message);
+      }
+    }
+
+    // Delete the message from MongoDB
+    await Message.deleteOne({ _id: id });
+
+    // Notify both users through Socket.IO
+    const senderSocketId = userSocketMap[userId.toString()];
+    const receiverSocketId =userSocketMap[message.receiverId.toString()];
+
+    const deletePayload = {messageId: message._id.toString(),};
+
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("messageDeleted", deletePayload);
+    }
+
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageDeleted", deletePayload);
+    }
+
+    return res.json({success: true, message: "Message deleted successfully", });
+
+  } catch (error) {
+    console.error("Delete message error:", error.message);
+    return res.status(500).json({success: false,message: error.message,});
+  }
+};
+
+export const deleteMessageForMe = async (req, res) => {
+  try {
+    const { id } = req.params
+    const userId = req.user._id
+    const message = await Message.findById(id)
+    if (!message) {
+      return res.status(404).json({success: false,message: "Message not found"})
+    }
+
+    // Add current user to deletedFor
+    await Message.findByIdAndUpdate(id, {$addToSet: {deletedFor: userId}})
+
+    // Tell current user's frontend to remove it
+    const socketId = userSocketMap[userId.toString()]
+    if (socketId) {
+      io.to(socketId).emit("messageDeletedForMe", { messageId: id})
+    }
+    res.json({success: true,message: "Message deleted from your chat"})
+  } catch (error) {
+    console.error("Delete for me error:", error.message)
+    res.status(500).json({ success: false,message: error.message})
+  }
 }
