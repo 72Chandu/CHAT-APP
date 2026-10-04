@@ -5,9 +5,10 @@ import { ChatContext } from '../../context/ChatContext'
 import { AuthContext } from '../../context/AuthContext'
 import toast from 'react-hot-toast'
 const ChatContainer = () => {
-  const { messages, sendMessage, getMessages, selectedUser, setSelectedUser, deleteMessage,deleteMessageForMe } = useContext(ChatContext)
+  const { messages, sendMessage, getMessages, selectedUser, setSelectedUser, deleteMessage, deleteMessageForMe, forwardMessage,users } = useContext(ChatContext)
   const { authUser, onlineUsers } = useContext(AuthContext)
   const [menuMessageId, setMenuMessageId] = useState(null)
+  const [forwardMessageId, setForwardMessageId] = useState(null)
   const scrollEnd = useRef()
 
   const [input, setInput] = useState('')
@@ -99,7 +100,7 @@ const ChatContainer = () => {
                 {menuMessageId === msg._id && (
                   <div className="absolute top-full mt-1 right-0 bottom-7 w-32 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50">
                     <button onClick={() => { setMenuMessageId(null) }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700 cursor-pointer">↩ Reply</button>
-                    <button onClick={() => { setMenuMessageId(null) }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700 cursor-pointer">➡ Forward</button>
+                    <button onClick={() => { setMenuMessageId(null); setForwardMessageId(msg._id) }} className="w-full text-left px-3 py-2 text-sm text-white hover:bg-gray-700 cursor-pointer">➡ Forward</button>
                     {isMine ? (
                       <button onClick={() => { setMenuMessageId(null); handleDeleteMessage(msg._id) }} className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-gray-700 cursor-pointer"> 🗑 Delete</button>
                     ) : (
@@ -111,6 +112,36 @@ const ChatContainer = () => {
             </div>
           )
         })}
+        {forwardMessageId && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
+            <div className="w-80 max-h-[70vh] bg-gray-800 rounded-xl shadow-xl border border-gray-700 overflow-hidden">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+                <h2 className="text-white font-medium">Forward message</h2>
+                <button onClick={() => setForwardMessageId(null)} className="text-gray-400 hover:text-white text-xl cursor-pointer">×</button>
+              </div>
+
+              {/* Users */}
+              <div className="max-h-[50vh] overflow-y-auto">
+                {users.filter((user) => String(user._id) !== String(authUser?._id)).map((user) => (
+                  <button key={user._id}
+                    onClick={async () => {
+                      const success = await forwardMessage( forwardMessageId, user._id);
+                      if (success) {
+                        setForwardMessageId(null);
+                      }
+                    }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-700 cursor-pointer"
+                  >
+                    <img src={user.profilePic || assets.avatar_icon}className="w-10 h-10 rounded-full"alt=""/>
+                    <div className="text-left">
+                      <p className="text-white">{user.fullName}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={scrollEnd}></div>
       </div>
       {/* bottom */}

@@ -171,3 +171,38 @@ export const deleteMessageForMe = async (req, res) => {
     res.status(500).json({ success: false,message: error.message})
   }
 }
+
+export const forwardMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { receiverId } = req.body;
+    const senderId = req.user._id;
+
+    if (!receiverId) {
+      return res.status(400).json({success: false, message: "Receiver is required"});
+    }
+    const originalMessage = await Message.findById(id);
+
+    if (!originalMessage) {
+      return res.status(404).json({success: false, message: "Message not found"});
+    }
+
+    // Create a NEW message
+    const forwardedMessage = await Message.create({
+      senderId,
+      receiverId,
+      text: originalMessage.text || "",
+      image: originalMessage.image || null
+    });
+
+    // Send it through Socket.IO
+    const receiverSocketId = userSocketMap[receiverId.toString()];
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage",forwardedMessage);
+    }
+    res.json({success: true,message: forwardedMessage });
+  } catch (error) {
+    console.error("Forward message error:", error.message);
+    res.status(500).json({success: false,message: error.message});
+  }
+};

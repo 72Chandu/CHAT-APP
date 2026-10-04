@@ -88,19 +88,33 @@ export const ChatProvider = ({ children }) => {
         }
     };
     const deleteMessageForMe = async (messageId) => {
-            try {
-                const { data } = await axios.delete(`/api/message/delete-for-me/${messageId}`)
-                if (data.success) {
-                    setMessages(prev =>
-                        prev.filter(
-                            msg => String(msg._id) !== String(messageId)
-                        )
+        try {
+            const { data } = await axios.delete(`/api/message/delete-for-me/${messageId}`)
+            if (data.success) {
+                setMessages(prev =>
+                    prev.filter(
+                        msg => String(msg._id) !== String(messageId)
                     )
-                }
-            } catch (error) {
-                toast.error(error.response?.data?.message || error.message )
+                )
             }
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message)
+        }
     }
+    const forwardMessage = async (messageId, receiverId) => {
+        try {
+            const { data } = await axios.post(`/api/message/forward/${messageId}`,{ receiverId });
+            if (data.success) {
+                toast.success("Message forwarded");
+                return true;
+            }
+            toast.error(data.message || "Failed to forward message");
+            return false;
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message );
+            return false;
+        }
+    };
     // useEffect(() => {
     //     subscribeToMessage()
     //     return () => unsuscribeFromMessage()
@@ -135,7 +149,7 @@ export const ChatProvider = ({ children }) => {
             socket.off("messageDeleted", handleDeletedMessage);
         };
     }, [socket, selectedUser, axios]);
-    const value = { messages, users, selectedUser, getUsers, getMessages, sendMessage, setSelectedUser, unseenMessages, setUnseenMessages, deleteMessage,deleteMessageForMe }
+    const value = { messages, users, selectedUser, getUsers, getMessages, sendMessage, setSelectedUser, unseenMessages, setUnseenMessages, deleteMessage, deleteMessageForMe,forwardMessage }
     return (
         <ChatContext.Provider value={value}>
             {children}
