@@ -54,7 +54,6 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
     try {
         await connectDB();
-
         server.listen(PORT, () => {
             console.log(`Server is running on port ${PORT}`);
         });
@@ -65,3 +64,4 @@ const startServer = async () => {
 };
 
 startServer();
+export default app;
